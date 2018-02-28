@@ -237,7 +237,7 @@ currencyLongName currency =
 renderForm : Model -> Html Msg
 renderForm model =
     form [ onSubmit StartMeeting ]
-        [ div [ class "row" ]
+        [ div [ class "row text-white" ]
             [ div [ class "col-sm-3 cell" ]
                 [ label [ for "currencies" ] [ text "Currency" ]
                 , select [ id "currencies", class "form-control", onInput CurrencyChanged ] (List.map (optionForCurrency model.currency) allCurrencies)
