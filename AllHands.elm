@@ -147,7 +147,8 @@ parseInt string =
 view : Model -> Html Msg
 view model =
     div [ class "container" ]
-        [ h1 [] [ text "All Hands" ]
+        [ h1 [ class "text-white" ] [ text "All Hands" ]
+        , h3 [ class "text-white" ] [ text "Enter some facts about your meeting and click start" ]
         , section [] ((viewForViewState model) ++ [ startStopButton model.started ])
         ]
 
@@ -176,15 +177,21 @@ renderMeeting : Model -> Html msg
 renderMeeting model =
     div []
         [ div [ class "row" ]
-            [ div [ class "col-sm cell" ] [ "Attendees: " ++ (toString model.attendees) |> text ]
-            , div [ class "col-sm cell" ] [ "Hourly rate: " ++ (amountInCurrency model.currency model.hourlyRate) |> text ]
-            , div [ class "col-sm cell" ] [ "Description: " ++ model.description |> text ]
+            [ makeSmallCard <| ("Attendees: " ++ (toString model.attendees) |> text)
+            , makeSmallCard <| ("Hourly rate: " ++ (amountInCurrency model.currency model.hourlyRate) |> text)
+            , makeSmallCard <| ("Description: " ++ model.description |> text)
             ]
         , div [ class "row second-row" ]
-            [ div [ class "col-sm cell" ] [ "Duration: " ++ (model.duration |> secondsToStopwatch) |> text ]
-            , div [ class "col-sm cell" ] [ "Cost: " ++ (cost model |> amountInCurrency model.currency) |> text ]
+            [ makeBigCard <| ("Duration: " ++ (model.duration |> secondsToStopwatch) |> text)
+            , makeBigCard <| ("Cost: " ++ (cost model |> amountInCurrency model.currency) |> text)
             ]
         ]
+
+makeSmallCard = makeCard "col-sm-4"
+makeBigCard = makeCard "col-sm-6"
+
+makeCard klass text =
+    div [class klass] [ div [ class "card" ] [ div [ class "card-body" ] [ text ] ] ]
 
 
 defaultCurrencyFormat currency number =
@@ -231,19 +238,19 @@ renderForm : Model -> Html Msg
 renderForm model =
     form [ onSubmit StartMeeting ]
         [ div [ class "row" ]
-            [ div [ class "col-sm cell" ]
+            [ div [ class "col-sm-3 cell" ]
                 [ label [ for "currencies" ] [ text "Currency" ]
                 , select [ id "currencies", class "form-control", onInput CurrencyChanged ] (List.map (optionForCurrency model.currency) allCurrencies)
                 ]
-            , div [ class "col-sm cell" ]
+            , div [ class "col-sm-3 cell" ]
                 [ label [ for "attendees" ] [ text "Attendees" ]
                 , input [ id "attendees", class "form-control", type_ "number", onInput AttendeesChanged ] []
                 ]
-            , div [ class "col-sm cell" ]
+            , div [ class "col-sm-3 cell" ]
                 [ label [ for "hourly-rate" ] [ text "Hourly rate" ]
                 , input [ id "hourly-rate", class "form-control", type_ "number", onInput HourlyRateChanged ] []
                 ]
-            , div [ class "col-sm cell" ]
+            , div [ class "col-sm-3 cell" ]
                 [ label [ for "description" ] [ text "Description" ]
                 , input [ id "description", class "form-control", onInput DescriptionChanged ] []
                 ]
@@ -257,7 +264,7 @@ startStopButton started =
         [ div [ class "col-sm text-center" ]
             [ button
                 [ onClick <| startStopTagger started
-                , class "btn"
+                , class "btn btn-xl rounded-pill mt-5"
                 , classList [ ( "btn-primary", not started ), ( "btn-danger", started ) ]
                 ]
                 [ text <| buttonLabel started ]
