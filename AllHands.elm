@@ -6,6 +6,7 @@ import Html.Events exposing (onInput, onClick, onSubmit)
 import Time exposing (Time)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (frenchLocale)
+import Maybe.Extra
 
 
 type alias Seconds =
@@ -18,12 +19,18 @@ type Currency
     | UsDollar
 
 
+type MeetingStatus
+    = New
+    | Started
+    | Paused
+
+
 type alias Model =
     { attendees : Int
     , hourlyRate : Float
     , duration : Seconds
     , description : String
-    , started : Bool
+    , status : MeetingStatus
     , viewState : ViewState
     , currency : Currency
     }
@@ -35,6 +42,7 @@ type Msg
     | HourlyRateChanged String
     | NewTime Time
     | StartMeeting
+    | PauseMeeting
     | EndMeeting
     | CurrencyChanged String
     | Noop
@@ -67,15 +75,19 @@ asHours seconds =
 
 init : ( Model, Cmd Msg )
 init =
+    newMeeting
+        ! []
+
+
+newMeeting =
     { attendees = 10
     , hourlyRate = 100
     , duration = 0
     , description = ""
-    , started = False
+    , status = New
     , viewState = NewMeeting
     , currency = Euro
     }
-        ! []
 
 
 allCurrencies =
@@ -100,16 +112,19 @@ update msg model =
             { model | attendees = parseInt newAttendees } ! []
 
         NewTime _ ->
-            if model.started then
+            if model.status == Started then
                 { model | duration = model.duration + 1 } ! []
             else
                 model ! []
 
         StartMeeting ->
-            { model | started = True, viewState = ShowMeeting } ! []
+            { model | status = Started, viewState = ShowMeeting } ! []
+
+        PauseMeeting ->
+            { model | status = Paused } ! []
 
         EndMeeting ->
-            { model | started = False } ! []
+            newMeeting ! []
 
         CurrencyChanged name ->
             { model | currency = Maybe.withDefault model.currency (parseCurrency name) } ! []
@@ -135,45 +150,56 @@ parseCurrency string =
 
 
 parseFloat : String -> Float
-parseFloat string =
-    String.toFloat string |> Result.withDefault 0
+parseFloat =
+    parseWithZeroDefault String.toFloat
 
 
 parseInt : String -> Int
-parseInt string =
-    String.toInt string |> Result.withDefault 0
+parseInt =
+    parseWithZeroDefault String.toInt
+
+
+parseWithZeroDefault : (String -> Result err number) -> (String -> number)
+parseWithZeroDefault parseFunction =
+    \string -> Result.withDefault 0 (parseFunction string)
 
 
 view : Model -> Html Msg
 view model =
-    div [ class "container" ]
-        [ h1 [ class "text-white" ] [ text "All Hands" ]
-        , h3 [ class "text-white" ] [ text "Enter some facts about your meeting and click start" ]
-        , section [] ((viewForViewState model) ++ [ startStopButton model.started ])
-        ]
+    div [ class "container" ] (model |> viewForViewState)
 
 
 viewForViewState : Model -> List (Html Msg)
 viewForViewState model =
     case model.viewState of
         NewMeeting ->
-            newMeeting model
+            renderNewMeeting model
 
         ShowMeeting ->
             showMeeting model
 
 
-newMeeting : Model -> List (Html Msg)
-newMeeting model =
-    [ renderForm model ]
+mainHeader : Html Msg
+mainHeader =
+    h1 [ class "text-white" ] [ text "All Hands" ]
+
+
+subHeader : Html Msg
+subHeader =
+    h3 [ class "text-white" ] [ text "Enter some facts about your meeting and click start" ]
+
+
+renderNewMeeting : Model -> List (Html Msg)
+renderNewMeeting model =
+    [ mainHeader, subHeader, section [] [ renderForm model, meetingControls model.status ] ]
 
 
 showMeeting : Model -> List (Html Msg)
 showMeeting model =
-    [ renderMeeting model ]
+    [ mainHeader, section [] [ renderMeeting model, meetingControls model.status ] ]
 
 
-renderMeeting : Model -> Html msg
+renderMeeting : Model -> Html Msg
 renderMeeting model =
     div []
         [ div [ class "row" ]
@@ -187,15 +213,24 @@ renderMeeting model =
             ]
         ]
 
-makeSmallCard = makeCard "col-sm-4"
-makeBigCard = makeCard "col-sm-6"
 
-makeCard klass text =
-    div [class klass] [ div [ class "card" ] [ div [ class "card-body" ] [ text ] ] ]
+makeSmallCard : Html Msg -> Html Msg
+makeSmallCard =
+    makeCard "col-sm-4"
 
 
-defaultCurrencyFormat currency number =
-    identity
+makeBigCard : Html Msg -> Html Msg
+makeBigCard =
+    makeCard "col-sm-6"
+
+
+makeCard : String -> Html msg -> Html msg
+makeCard klass content =
+    div [ class klass ]
+        [ div [ class "card" ]
+            [ div [ class "card-body" ] [ content ]
+            ]
+        ]
 
 
 cost : Model -> Float
@@ -258,36 +293,65 @@ renderForm model =
         ]
 
 
-startStopButton : Bool -> Html Msg
-startStopButton started =
+meetingControls : MeetingStatus -> Html Msg
+meetingControls status =
     div [ class "row meeting-controls" ]
         [ div [ class "col-sm text-center" ]
-            [ button
-                [ onClick <| startStopTagger started
-                , class "btn btn-xl rounded-pill mt-5"
-                , classList [ ( "btn-primary", not started ), ( "btn-danger", started ) ]
-                ]
-                [ text <| buttonLabel started ]
-            ]
+            ([ startPauseButton status ] ++ (Maybe.Extra.toList (newMeetingButton status)))
         ]
+
+
+newMeetingButton : MeetingStatus -> Maybe (Html Msg)
+newMeetingButton status =
+    case status of
+        Paused ->
+            Just
+                (button
+                    [ onClick EndMeeting
+                    , class "btn btn-xl rounded-pill mt-5"
+                    ]
+                    [ text "New meeting" ]
+                )
+
+        _ ->
+            Nothing
+
+
+startPauseButton : MeetingStatus -> Html Msg
+startPauseButton status =
+    let
+        started =
+            status == Started
+    in
+        button
+            [ onClick <| startStopTagger started
+            , class "btn btn-xl rounded-pill mt-5"
+            , classList [ ( "btn-primary", not started ), ( "btn-danger", started ) ]
+            ]
+            [ text <| buttonLabel status ]
 
 
 startStopTagger : Bool -> Msg
 startStopTagger started =
     case started of
         True ->
-            EndMeeting
+            PauseMeeting
 
         False ->
             StartMeeting
 
 
-buttonLabel : Bool -> String
-buttonLabel started =
-    if started then
-        "End meeting"
-    else
-        "Start meeting"
+buttonLabel : MeetingStatus -> String
+buttonLabel status =
+    case status of
+        Started ->
+            "Pause meeting"
+
+        Paused ->
+            "Resume meeting"
+
+        _ ->
+            "Start meeting"
 
 
 secondsToStopwatch : Seconds -> String
