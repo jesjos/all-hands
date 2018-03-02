@@ -1,7 +1,7 @@
 module AllHands exposing (main)
 
 import Html exposing (..)
-import Html.Attributes exposing (for, class, classList, type_, id, selected, value)
+import Html.Attributes exposing (for, class, classList, type_, id, selected, value, style, placeholder)
 import Html.Events exposing (onInput, onClick, onSubmit)
 import Time exposing (Time)
 import FormatNumber exposing (format)
@@ -287,9 +287,10 @@ renderForm model =
                 ]
             , div [ class "col-sm-3 cell" ]
                 [ label [ for "description" ] [ text "Description" ]
-                , input [ id "description", class "form-control", onInput DescriptionChanged ] []
+                , input [ id "description", class "form-control", onInput DescriptionChanged, placeholder "Yet another daily..." ] []
                 ]
             ]
+        , button [ style [ ( "visibility", "hidden" ) ] ] []
         ]
 
 
