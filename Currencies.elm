@@ -1,4 +1,4 @@
-module Currencies exposing (Currency(..), allCurrencies)
+module Currencies exposing (Currency(..), allCurrencies, parseCurrency, currencyLongName)
 
 
 type Currency

@@ -1,6 +1,6 @@
 module AllHands exposing (main)
 
-import Currencies exposing (Currency)
+import Currencies exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (for, class, classList, type_, id, selected, value, style, placeholder)
 import Html.Events exposing (onInput, onClick, onSubmit)
@@ -8,6 +8,7 @@ import Time exposing (Time)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (frenchLocale)
 import Maybe.Extra
+import Navigation exposing (..)
 
 
 type alias Seconds =
@@ -32,10 +33,15 @@ type alias Model =
 
 
 type Msg
+    = NavigationMsg Location
+    | ModelMsg ModelMsg
+    | NewTime Time
+
+
+type ModelMsg
     = DescriptionChanged String
     | AttendeesChanged String
     | HourlyRateChanged String
-    | NewTime Time
     | StartMeeting
     | PauseMeeting
     | EndMeeting
@@ -50,7 +56,7 @@ type ViewState
 
 main : Program Never Model Msg
 main =
-    Html.program
+    Navigation.program NavigationMsg
         { update = update
         , view = view
         , init = init
@@ -68,8 +74,8 @@ asHours seconds =
     (toFloat seconds) / 3600
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Location -> ( Model, Cmd Msg )
+init location =
     newMeeting
         ! []
 
@@ -93,6 +99,18 @@ subscriptions model =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        ModelMsg modelMsg ->
+            updateModel modelMsg model
+
+        NewTime _ ->
+            if model.status == Started then
+                { model | duration = model.duration + 1 } ! []
+            else
+                model ! []
+
+
+updateModel modelMsg model =
+    case modelMsg of
         DescriptionChanged newDescription ->
             { model | description = newDescription } ! []
 
@@ -101,12 +119,6 @@ update msg model =
 
         AttendeesChanged newAttendees ->
             { model | attendees = parseInt newAttendees } ! []
-
-        NewTime _ ->
-            if model.status == Started then
-                { model | duration = model.duration + 1 } ! []
-            else
-                model ! []
 
         StartMeeting ->
             { model | status = Started, viewState = ShowMeeting } ! []
@@ -139,12 +151,12 @@ parseWithZeroDefault parseFunction =
     \string -> Result.withDefault 0 (parseFunction string)
 
 
-view : Model -> Html Msg
+view : Model -> Html ModelMsg
 view model =
     div [ class "container" ] (model |> viewForViewState)
 
 
-viewForViewState : Model -> List (Html Msg)
+viewForViewState : Model -> List (Html ModelMsg)
 viewForViewState model =
     case model.viewState of
         NewMeeting ->
@@ -189,6 +201,19 @@ renderMeeting model =
         ]
 
 
+amountInCurrency : Currency -> Float -> String
+amountInCurrency currency amount =
+    case currency of
+        Euro ->
+            defaultFormat amount ++ "€"
+
+        UsDollar ->
+            "$" ++ defaultFormat amount
+
+        SwedishKrona ->
+            defaultFormat amount ++ " kr"
+
+
 makeSmallCard : Html Msg -> Html Msg
 makeSmallCard =
     makeCard "col-sm-4"
@@ -222,27 +247,14 @@ optionForCurrency selectedCurrency currency =
         [ currency |> currencyLongName |> text ]
 
 
-currencyLongName : Currency -> String
-currencyLongName currency =
-    case currency of
-        Euro ->
-            "Euro (€)"
-
-        UsDollar ->
-            "US Dollar ($)"
-
-        SwedishKrona ->
-            "Swedish Krona (kr)"
-
-
 renderForm : Model -> Html Msg
 renderForm model =
-    form [ onSubmit StartMeeting ]
+    form [ onSubmit (ModelMsg StartMeeting) ]
         [ div [ class "row text-white" ]
             [ div [ class "col-sm-3 cell" ]
                 [ label [ for "currencies" ] [ text "Currency" ]
                 , select
-                    [ id "currencies", class "form-control", onInput CurrencyChanged ]
+                    [ id "currencies", class "form-control", onInput (\string -> ModelMsg CurrencyChanged string) ]
                     (List.map (optionForCurrency model.currency) allCurrencies)
                 ]
             , div [ class "col-sm-3 cell" ]
@@ -282,7 +294,7 @@ newMeetingButton status =
         Paused ->
             Just
                 (button
-                    [ onClick EndMeeting
+                    [ onClick (ModelMsg EndMeeting)
                     , class "btn btn-xl rounded-pill mt-5"
                     ]
                     [ text "New meeting" ]
@@ -310,10 +322,10 @@ startStopTagger : Bool -> Msg
 startStopTagger started =
     case started of
         True ->
-            PauseMeeting
+            ModelMsg PauseMeeting
 
         False ->
-            StartMeeting
+            ModelMsg StartMeeting
 
 
 buttonLabel : MeetingStatus -> String
