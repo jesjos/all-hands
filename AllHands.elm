@@ -1,5 +1,6 @@
 module AllHands exposing (main)
 
+import Currencies exposing (Currency)
 import Html exposing (..)
 import Html.Attributes exposing (for, class, classList, type_, id, selected, value, style, placeholder)
 import Html.Events exposing (onInput, onClick, onSubmit)
@@ -11,12 +12,6 @@ import Maybe.Extra
 
 type alias Seconds =
     Int
-
-
-type Currency
-    = Euro
-    | SwedishKrona
-    | UsDollar
 
 
 type MeetingStatus
@@ -90,10 +85,6 @@ newMeeting =
     }
 
 
-allCurrencies =
-    [ Euro, UsDollar, SwedishKrona ]
-
-
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Time.every Time.second NewTime
@@ -131,22 +122,6 @@ update msg model =
 
         Noop ->
             model ! []
-
-
-parseCurrency : String -> Maybe Currency
-parseCurrency string =
-    case (string |> String.trim |> String.toLower) of
-        "euro" ->
-            Just Euro
-
-        "usdollar" ->
-            Just UsDollar
-
-        "swedishkrona" ->
-            Just SwedishKrona
-
-        _ ->
-            Nothing
 
 
 parseFloat : String -> Float
@@ -224,7 +199,7 @@ makeBigCard =
     makeCard "col-sm-6"
 
 
-makeCard : String -> Html msg -> Html msg
+makeCard : String -> Html Msg -> Html Msg
 makeCard klass content =
     div [ class klass ]
         [ div [ class "card" ]
@@ -240,20 +215,11 @@ cost model =
 
 optionForCurrency : Currency -> Currency -> Html Msg
 optionForCurrency selectedCurrency currency =
-    option [ selected (selectedCurrency == currency), value (toString currency) ] [ currency |> currencyLongName |> text ]
-
-
-amountInCurrency : Currency -> Float -> String
-amountInCurrency currency amount =
-    case currency of
-        Euro ->
-            defaultFormat amount ++ "€"
-
-        UsDollar ->
-            "$" ++ defaultFormat amount
-
-        SwedishKrona ->
-            defaultFormat amount ++ " kr"
+    option
+        [ selected (selectedCurrency == currency)
+        , value (toString currency)
+        ]
+        [ currency |> currencyLongName |> text ]
 
 
 currencyLongName : Currency -> String
@@ -275,7 +241,9 @@ renderForm model =
         [ div [ class "row text-white" ]
             [ div [ class "col-sm-3 cell" ]
                 [ label [ for "currencies" ] [ text "Currency" ]
-                , select [ id "currencies", class "form-control", onInput CurrencyChanged ] (List.map (optionForCurrency model.currency) allCurrencies)
+                , select
+                    [ id "currencies", class "form-control", onInput CurrencyChanged ]
+                    (List.map (optionForCurrency model.currency) allCurrencies)
                 ]
             , div [ class "col-sm-3 cell" ]
                 [ label [ for "attendees" ] [ text "Attendees" ]
@@ -287,7 +255,13 @@ renderForm model =
                 ]
             , div [ class "col-sm-3 cell" ]
                 [ label [ for "description" ] [ text "Description" ]
-                , input [ id "description", class "form-control", onInput DescriptionChanged, placeholder "Yet another daily..." ] []
+                , input
+                    [ id "description"
+                    , class "form-control"
+                    , onInput DescriptionChanged
+                    , placeholder "Yet another daily..."
+                    ]
+                    []
                 ]
             ]
         , button [ style [ ( "visibility", "hidden" ) ] ] []
@@ -380,5 +354,6 @@ padWithZero =
     String.padLeft 2 '0'
 
 
+defaultFormat : Float -> String
 defaultFormat =
     format { frenchLocale | decimals = 2 }
